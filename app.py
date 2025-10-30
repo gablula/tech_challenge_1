@@ -4,65 +4,65 @@ from fastapi import BackgroundTasks
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from pydantic import BaseModel
 import pandas as pd
-import scripts.web_scrapping as scrap
+import scripts.web_scraping as scrap
 from time import sleep
 
 url = 'https://books.toscrape.com/'
 
 
 app = FastAPI(
-    title="Books Scrapping API",
+    title="Books scraping API",
     version="1.0",
-    description="API web de Scrapping de página web de livros utilizando FastAPI e BeautifulSoup",
+    description="API web de scraping de página web de livros utilizando FastAPI e BeautifulSoup",
 )
 
-print("Iniciando web scrapping...")
-web_scrapping = scrap.web_scrapping_data_init()
-print("Web scrapping iniciado.")
+print("Iniciando web scraping...")
+web_scraping = scrap.web_scraping_data_init()
+print("Web scraping iniciado.")
 
 @app.get("/api/v1/books")
 async def get_books_titles():
     """
-    Retorna a lista de títulos dos livros scrapped.
+    Retorna a lista de títulos dos livros scraped.
     """
 
-    if scrap.web_scrapping_get_status(web_scrapping) != "Done":
-        return {"message": scrap.web_scrapping_status_message(web_scrapping)}
+    if scrap.web_scraping_get_status(web_scraping) != "Done":
+        return {"message": scrap.web_scraping_status_message(web_scraping)}
 
-    return scrap.web_scrapping_get_book_titles(web_scrapping)
+    return scrap.web_scraping_get_book_titles(web_scraping)
     
-@app.get("/api/v1/books/scrapping_start")
+@app.get("/api/v1/books/scraping_start")
 def start_scraping(background_tasks: BackgroundTasks):
     """
-    Inicia o processo de scrapping em background.
+    Inicia o processo de scraping em background.
     """
 
-    if scrap.web_scrapping_get_status(web_scrapping) == "Idle":
+    if scrap.web_scraping_get_status(web_scraping) == "Idle":
         print("Iniciando task...")
-        background_tasks.add_task(scrap.web_scrapping_task, url, web_scrapping)
-        return {"message": "Scrapping iniciado em background."}
+        background_tasks.add_task(scrap.web_scraping_task, url, web_scraping)
+        return {"message": "scraping iniciado em background."}
     else:
-        return {"message": scrap.web_scrapping_status_message(web_scrapping)}
+        return {"message": scrap.web_scraping_status_message(web_scraping)}
 
 
-@app.get("/api/v1/books/scrapping_reset")
-def delete_scrapping():
+@app.get("/api/v1/books/scraping_reset")
+def delete_scraping():
     """
-    Deleta a base de dados de scrapping.
+    Deleta a base de dados de scraping.
     """    
     
-    # Caso o scrapping esteja em andamento, aguardar a task parar
-    if scrap.web_scrapping_get_status(web_scrapping) == "Running":
-        scrap.web_scrapping_set_status(web_scrapping, "Stopping")
-        while scrap.web_scrapping_get_status(web_scrapping) == "Stopping":
-            # Esperar o término do scrapping
+    # Caso o scraping esteja em andamento, aguardar a task parar
+    if scrap.web_scraping_get_status(web_scraping) == "Running":
+        scrap.web_scraping_set_status(web_scraping, "Stopping")
+        while scrap.web_scraping_get_status(web_scraping) == "Stopping":
+            # Esperar o término do scraping
             sleep(1)
 
-    scrap.web_scrapping_delete_database()
+    scrap.web_scraping_delete_database()
 
-    scrap.web_scrapping_set_status(web_scrapping, "Idle")
+    scrap.web_scraping_set_status(web_scraping, "Idle")
 
-    return {"message": "Base de dados de scrapping deletada com sucesso."}
+    return {"message": "Base de dados de scraping deletada com sucesso."}
 
 
 @app.get("/api/v1/books/search")
@@ -71,10 +71,10 @@ async def get_books_search(title: str = None, category: str = None):
     Retorna a lista de títulos dos livros filtrados por título e/ou categoria.
     """
 
-    books_search = scrap.web_scrapping_get_database(web_scrapping)
+    books_search = scrap.web_scraping_get_database(web_scraping)
     
-    if scrap.web_scrapping_get_status(web_scrapping) != "Done":
-        return {"message": scrap.web_scrapping_status_message(web_scrapping)}
+    if scrap.web_scraping_get_status(web_scraping) != "Done":
+        return {"message": scrap.web_scraping_status_message(web_scraping)}
 
     if category:
         print(category)
@@ -94,34 +94,34 @@ async def get_books_search(title: str = None, category: str = None):
 @app.get("/api/v1/books/categories")
 async def get_book_categories():
     """
-    Retorna a lista de categorias dos livros scrapped.
+    Retorna a lista de categorias dos livros scraped.
     """
 
-    if scrap.web_scrapping_get_status(web_scrapping) != "Done":
-        return {"message": scrap.web_scrapping_status_message(web_scrapping)}
+    if scrap.web_scraping_get_status(web_scraping) != "Done":
+        return {"message": scrap.web_scraping_status_message(web_scraping)}
 
-    books_dataframe = scrap.web_scrapping_get_database(web_scrapping)
+    books_dataframe = scrap.web_scraping_get_database(web_scraping)
     return {"categories": sorted(books_dataframe['category'].unique().tolist())}
 
 
 @app.get("/api/v1/health")
 async def health_check():
     """
-    Retorna o status da API e do scrapping.
+    Retorna o status da API e do scraping.
     """    
     
     api_status = "online"
     
-    if scrap.web_scrapping_get_status(web_scrapping) == "Done":
+    if scrap.web_scraping_get_status(web_scraping) == "Done":
         return {
             "api": api_status,
-            "scraping status": scrap.web_scrapping_status_message(web_scrapping),
-            "books_scrapped": scrap.web_scrapping_size(web_scrapping)
+            "scraping status": scrap.web_scraping_status_message(web_scraping),
+            "books_scraped": scrap.web_scraping_size(web_scraping)
         }
     else:
         return {
             "api": api_status,
-            "scraping status": scrap.web_scrapping_status_message(web_scrapping)
+            "scraping status": scrap.web_scraping_status_message(web_scraping)
         }
 
 
@@ -132,11 +132,11 @@ async def get_books(id: int):
     """
 
 
-    if scrap.web_scrapping_get_status(web_scrapping) != "Done":
-        return {"message": scrap.web_scrapping_status_message(web_scrapping)}
+    if scrap.web_scraping_get_status(web_scraping) != "Done":
+        return {"message": scrap.web_scraping_status_message(web_scraping)}
 
-    if id >= 0 and id < scrap.web_scrapping_size(web_scrapping):
-        books_dataframe = scrap.web_scrapping_get_database(web_scrapping)
+    if id >= 0 and id < scrap.web_scraping_size(web_scraping):
+        books_dataframe = scrap.web_scraping_get_database(web_scraping)
         return books_dataframe.iloc[id].to_dict()
     else:
         raise HTTPException(status_code=404, detail="Book item not found")
