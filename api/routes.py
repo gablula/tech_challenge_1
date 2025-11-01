@@ -1,4 +1,5 @@
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi.responses import RedirectResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import os
@@ -43,6 +44,17 @@ app_start_time = time.time()
 
 
 @router.get(
+    "/",
+    summary="Página Inicial",
+    description="Redireciona para a documentação da API",
+    tags=["Sistema"]
+)
+async def root():
+    """Redireciona para a documentação Swagger da API"""
+    return RedirectResponse(url="/docs")
+
+
+@router.get(
     "/api/v1/scraper/status",
     response_model=ScrapingStatusResponse,
     summary="Obter Status do Scraping",
@@ -57,10 +69,11 @@ def get_scraping_status():
     - Status atual do processo (Idle, Running, Done, etc.)
     - Mensagem descritiva do status
     """
-    return {
+    data = {
         "status": scraper.state.status,
         "message": scraper.get_status_message()
     }
+    return JSONResponse(content=data)
 
 @router.get(
     "/api/v1/scraper/start",
@@ -125,8 +138,11 @@ async def get_books_titles():
     - Útil para obter uma visão geral rápida do catálogo
     """
     if scraper.state.status != "Done":
-        return {"message": scraper.get_status_message()}
-    return scraper.get_book_titles()
+        data = {"message": scraper.get_status_message()}
+        return JSONResponse(content=data)
+    
+    titles = scraper.get_book_titles()
+    return JSONResponse(content=titles)
 
 
 @router.get(
@@ -153,8 +169,11 @@ async def get_books_search(
     - `/api/v1/books/search?title=data&category=Science` - combinação de filtros
     """
     if scraper.state.status != "Done":
-        return {"message": scraper.get_status_message()}
-    return scraper.search_books(title=title, category=category)
+        data = {"message": scraper.get_status_message()}
+        return JSONResponse(content=data)
+    
+    results = scraper.search_books(title=title, category=category)
+    return JSONResponse(content=results)
 
 
 
@@ -175,11 +194,15 @@ async def get_categories():
     - Útil para filtros e navegação por categoria
     """
     if scraper.state.status != "Done":
-        return {"message": scraper.get_status_message()}
+        data = {"message": scraper.get_status_message()}
+        return JSONResponse(content=data)
 
     if 'category' not in scraper.state.books_dataframe.columns:
-        return {"message": "A coluna 'category' não foi encontrada na base de dados."}
-    return {"categories": sorted(scraper.state.books_dataframe['category'].unique().tolist())}
+        data = {"message": "A coluna 'category' não foi encontrada na base de dados."}
+        return JSONResponse(content=data)
+    
+    categories = {"categories": sorted(scraper.state.books_dataframe['category'].unique().tolist())}
+    return JSONResponse(content=categories)
 
 
 
@@ -218,7 +241,7 @@ async def health_check():
     csv_size_mb = None
     csv_creation_date = None
     
-    database_path = "./data/scrapping_books_database.csv"
+    database_path = scraper.SCRAPING_DATABASE_FILE
     try:
         if os.path.exists(database_path):
             # Tamanho do arquivo em MB
@@ -227,20 +250,23 @@ async def health_check():
             
             # Data de criação do arquivo
             creation_timestamp = os.path.getctime(database_path)
-            csv_creation_date = datetime.fromtimestamp(creation_timestamp).strftime("%Y-%m-%d %H:%M:%S")
+            csv_creation_date = datetime.fromtimestamp(creation_timestamp).strftime("%d/%m/%Y %H:%M:%S")
     except Exception:
         # Se houver erro ao acessar o arquivo, mantenha os valores None
         pass
     
-    return {
+    # Retornar JSON formatado (pretty-printed)
+    data = {
         "api_status": api_status,
         "uptime_seconds": uptime_seconds,
         "scraping_status": scraping_status,
         "books_scraped": books_count if books_count > 0 else None,
         "csv_file_size_mb": csv_size_mb,
-        "csv_creation_date": csv_creation_date,
-        "Teste": "Teste"
+        "csv_creation_date": csv_creation_date
     }
+    
+    # Retorna JSON com indentação para melhor legibilidade
+    return JSONResponse(content=data, headers={"Content-Type": "application/json; charset=utf-8"})
     
 
 @router.get(
@@ -286,10 +312,12 @@ async def get_book_by_id(id: int):
     **Exemplo**: `/api/v1/books/0` retorna o primeiro livro da coleção
     """
     if scraper.state.status != "Done":
-        return {"message": scraper.get_status_message()}
+        data = {"message": scraper.get_status_message()}
+        return JSONResponse(content=data)
 
     if id >= 0 and id < len(scraper.state.books_dataframe):
-        return scraper.state.books_dataframe.iloc[id].to_dict()
+        book_data = scraper.state.books_dataframe.iloc[id].to_dict()
+        return JSONResponse(content=book_data)
     else:
         raise HTTPException(status_code=404, detail="Book item not found")
      
