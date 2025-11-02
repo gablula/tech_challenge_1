@@ -112,13 +112,13 @@ def reset_scraping():
     - Retorna o status para 'Idle'
     
     """
-    if scraper.state.status == "Running":
+    if scraper.state.status in ["Running", "Extracting_urls", "Scraping_books"]:
         scraper.state.status = "Stopping"
         while scraper.state.status == "Stopping":
             pass  # Esperar a task de scraping parar
     scraper.delete_database()
     scraper.state.status = "Idle"
-    scraper.state.qtd_books = 0
+    scraper.state.qtd_books_urls = 0
     return {"message": "Base de dados de scraping apagada com sucesso."}
 
 
@@ -235,7 +235,7 @@ async def health_check():
     
     # Status do scraping e quantidade de livros
     scraping_status = scraper.get_status_message()
-    books_count = scraper.state.qtd_books if hasattr(scraper.state, 'qtd_books') else 0
+    books_count = scraper.state.qtd_books_urls if hasattr(scraper.state, 'qtd_books_urls') else 0
     
     # Informações do arquivo CSV
     csv_size_mb = None
@@ -273,7 +273,7 @@ async def health_check():
     "/api/v1/books/{id}",
     response_model=BookResponse,
     summary="Obter Livro por ID",
-    description="Retorna os detalhes completos de um livro específico baseado no seu ID (índice).",
+    description="Retorna os detalhes completos de um livro específico baseado no seu ID (índice de 0 até total-1).",
     tags=["Livros"],
     responses={
         200: {
@@ -295,7 +295,7 @@ async def health_check():
             "description": "Livro não encontrado",
             "content": {
                 "application/json": {
-                    "example": {"detail": "Book item not found"}
+                    "example": {"detail": "Livro não encontrado. Índice deve estar entre 0 e o total de livros coletados."}
                 }
             }
         }
@@ -306,18 +306,33 @@ async def get_book_by_id(id: int):
     **Obtém detalhes completos de um livro por ID**
     
     - **id**: Índice do livro na base de dados (começa em 0)
+    - **Range válido**: 0 até (total de livros - 1)
     - Retorna todas as informações disponíveis do livro
     - Inclui título, preço, categoria, disponibilidade, avaliação e descrição
     
-    **Exemplo**: `/api/v1/books/0` retorna o primeiro livro da coleção
+    **Exemplos**:
+    - `/api/v1/books/0` - retorna o primeiro livro da coleção
+    - `/api/v1/books/999` - retorna o livro de índice 999 (se existir)
+    
+    **Nota**: Para verificar quantos livros foram coletados, use `/api/v1/scraper/status`
     """
     if scraper.state.status != "Done":
         data = {"message": scraper.get_status_message()}
         return JSONResponse(content=data)
 
-    if id >= 0 and id < len(scraper.state.books_dataframe):
+    # Verificar se o DataFrame existe e tem dados
+    if not hasattr(scraper.state, 'books_dataframe') or scraper.state.books_dataframe.empty:
+        data = {"message": "Nenhum livro foi coletado ainda. Execute o scraping primeiro."}
+        return JSONResponse(content=data)
+    
+    total_books = len(scraper.state.books_dataframe)
+    
+    if id >= 0 and id < total_books:
         book_data = scraper.state.books_dataframe.iloc[id].to_dict()
         return JSONResponse(content=book_data)
     else:
-        raise HTTPException(status_code=404, detail="Book item not found")
+        raise HTTPException(
+            status_code=404, 
+            detail=f"Livro não encontrado. Índice deve estar entre 0 e {total_books - 1}. Total de livros disponíveis: {total_books}"
+        )
      

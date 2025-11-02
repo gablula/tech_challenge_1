@@ -12,7 +12,6 @@ Coletar informações de livros (título, preço, categoria, disponibilidade, av
 - **Busca Avançada**: Filtros por título e categoria
 - **Monitoramento**: Status em tempo real do processo de scraping
 - **Documentação Interativa**: Swagger UI integrado
-- **Organização por Tags**: Endpoints organizados por funcionalidade
 - **Arquitetura Modular**: Código organizado em módulos especializados
 ---
 
@@ -47,7 +46,9 @@ tech_challenge_1/                # Repositório Git
 
 3. **Web Scraper Service** (`services/web_scraper.py`)
    - Classe `WebScraper` para orquestração do scraping utilizando BeautifulSoup
-   - Gerenciamento de estado com `ScrapingState`
+   - Gerenciamento de estado com `ScrapingState` e contagem dinâmica de URLs
+   - Status granulares: `Extracting_urls`, `Scraping_books`, `Done`, `Error`
+   - Atualização em tempo real da contagem de livros encontrados
 
 
 4. **HTML Parser** (`services/html_parser.py`)
@@ -58,6 +59,7 @@ tech_challenge_1/                # Repositório Git
 5. **Scraper Utils** (`services/scraper_utils.py`)
    - Classe `ScraperUtils` com funções utilitárias
    - Operações de rede e manipulação de dados
+   - Atualização em tempo real do estado durante extração de URLs
    - Funções auxiliares para validação e formatação
 
 6. **Data Storage** (`data/`)
@@ -116,20 +118,11 @@ pip install -r requirements.txt
 ## Instruções para Execução
 
 ### Executando a API
-
-#### Método 1: Execução Direta
 ```bash
 # Com ambiente virtual ativado, execute a partir da raiz do projeto
 python main.py
 ```
-
 **Nota:** Você pode configurar `HOST` e `PORT` via variáveis de ambiente (ex: `export HOST=127.0.0.1 PORT=8080`).
-
-#### Método 2: Usando Uvicorn
-```bash
-# Com ambiente virtual ativado
-uvicorn main:app --host 0.0.0.0 --port 8001 --reload
-```
 
 ### Acessando a Aplicação
 
@@ -144,9 +137,10 @@ Após iniciar o servidor, a API estará disponível em:
 1. **Inicie a API** conforme instruções acima
 2. **Acesse a documentação** em http://localhost:8001/docs
 3. **Inicie o scraping** chamando `/api/v1/scraper/start`
-4. **Monitore o progresso** em `/api/v1/scraper/status`
-5. **Consulte os dados** quando o status for 'Done'
-
+4. **Monitore o progresso** em `/api/v1/scraper/status` com atualizações em tempo real:
+   - Status `Extracting_urls`: Contagem dinâmica de URLs encontradas
+   - Status `Scraping_books`: Progresso percentual da coleta de dados
+5. **Consulte os dados** quando o status for 'Done', usando os endpoints `/books`
 ---
 
 ## Documentação das Rotas da API
@@ -194,8 +188,23 @@ GET /api/v1/scraper/status
 ```json
 {
   "status": "Done",
-  "books_count": 1000,
-  "message": "Scraping concluído com sucesso. 1000 livros coletados."
+  "message": "Scraping concluído com sucesso! 1000 livros coletados e disponíveis para consulta."
+}
+```
+
+**Response (Extraindo URLs):**
+```json
+{
+  "status": "Extracting_urls", 
+  "message": "Extraindo URLs dos livros do site. Aguarde... (347 URLs encontradas até agora)"
+}
+```
+
+**Response (Coletando dados):**
+```json
+{
+  "status": "Scraping_books",
+  "message": "Coletando dados dos livros: 450/1000 (45.0%). Aguarde a conclusão para acessar as funções de consulta."
 }
 ```
 
@@ -211,10 +220,17 @@ GET /api/v1/scraper/start
 }
 ```
 
-**Response (Já em execução):**
+**Response (Já em execução - Extraindo URLs):**
 ```json
 {
-  "message": "Scraping já está em execução. 450 livros coletados até agora."
+  "message": "Scraping em andamento. Aguarde a conclusão para acessar os dados dos livros."
+}
+```
+
+**Response (Já em execução - Coletando dados):**
+```json
+{
+  "message": "Scraping em andamento. Aguarde a conclusão para acessar os dados dos livros."
 }
 ```
 
@@ -241,11 +257,25 @@ GET /api/v1/books
 ```json
 [
   "A Light in the Attic",
-  "Tipping the Velvet",
+  "Tipping the Velvet", 
   "Soumission",
   "Sharp Objects",
   "Sapiens: A Brief History of Humankind"
 ]
+```
+
+**Response (Scraping não iniciado):**
+```json
+{
+  "message": "Nenhum dado disponível. Inicie o scraping usando /api/v1/scraper/start"
+}
+```
+
+**Response (Scraping em andamento):**
+```json
+{
+  "message": "Scraping em andamento. Aguarde a conclusão para acessar os dados dos livros."
+}
 ```
 
 #### 5. Buscar Livros com Filtros
@@ -308,7 +338,7 @@ GET /api/v1/books/0
 **Response (Não encontrado):**
 ```json
 {
-  "detail": "Book item not found"
+  "detail": "Livro não encontrado. Índice deve estar entre 0 e 999. Total de livros disponíveis: 1000}"
 }
 ```
 
@@ -336,10 +366,22 @@ GET /api/v1/health
 {
   "api_status": "online",
   "uptime_seconds": 1234.56,
-  "scraping_status": "Scraping em execução. 450 livros coletados até agora.",
+  "scraping_status": "Coletando dados dos livros: 450/1000 (45.0%). Aguarde a conclusão para acessar as funções de consulta.",
   "books_scraped": 450,
   "csv_file_size_mb": 1.234,
   "csv_creation_date": "2025-11-01 14:00:00"
+}
+```
+
+**Response (Extraindo URLs):**
+```json
+{
+  "api_status": "online", 
+  "uptime_seconds": 890.12,
+  "scraping_status": "Extraindo URLs dos livros do site. Aguarde... (347 URLs encontradas até agora)",
+  "books_scraped": 0,
+  "csv_file_size_mb": null,
+  "csv_creation_date": null
 }
 ```
 
@@ -348,45 +390,11 @@ GET /api/v1/health
 {
   "api_status": "online",
   "uptime_seconds": 567.89,
-  "scraping_status": "Scraping não foi iniciado ainda.",
+  "scraping_status": "Scraping não foi iniciado ainda. Use /api/v1/scraper/start para iniciar a coleta de dados.",
   "books_scraped": null,
   "csv_file_size_mb": null,
   "csv_creation_date": null
 }
-```
-
----
-
-## Exemplos de Uso com cURL
-
-### Iniciar Scraping
-```bash
-curl -X GET "http://localhost:8001/api/v1/scraper/start" \
-     -H "accept: application/json"
-```
-
-### Buscar Livros de Ficção
-```bash
-curl -X GET "http://localhost:8001/api/v1/books/search?category=Fiction" \
-     -H "accept: application/json"
-```
-
-### Listar Categorias
-```bash
-curl -X GET "http://localhost:8001/api/v1/books/categories" \
-     -H "accept: application/json"
-```
-
-### Obter Status
-```bash
-curl -X GET "http://localhost:8001/api/v1/scraper/status" \
-     -H "accept: application/json"
-```
-
-### Health Check
-```bash
-curl -X GET "http://localhost:8001/api/v1/health" \
-     -H "accept: application/json"
 ```
 
 ---
@@ -447,7 +455,8 @@ O processo de scraping pode estar nos seguintes estados:
 | Estado | Descrição |
 |--------|-----------|
 | `Idle` | Processo parado, pronto para iniciar |
-| `Running` | Coletando dados em background |
+| `Extracting_urls` | Extraindo URLs das páginas (contagem dinâmica) |
+| `Scraping_books` | Coletando dados dos livros (progresso percentual) |
 | `Stopping` | Parando o processo atual |
 | `Done` | Scraping concluído com sucesso |
 | `Error` | Erro durante o processo |

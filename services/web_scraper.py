@@ -17,7 +17,7 @@ from .scraper_utils import ScraperUtils
 class ScrapingState:
     """Estado do processo de scraping."""
     books_dataframe: pd.DataFrame = field(default_factory=pd.DataFrame)
-    qtd_books: int = 0
+    qtd_books_urls: int = 0
     status: str = "Idle"
 
 
@@ -49,7 +49,7 @@ class WebScraper:
         if existing_data is not None and len(existing_data) > 0:
             self.state.books_dataframe = existing_data
             self.state.status = "Done"
-            self.state.qtd_books = len(existing_data)
+            self.state.qtd_books_urls = len(existing_data)
             
         return self.state
 
@@ -60,20 +60,27 @@ class WebScraper:
         Returns:
             str: Mensagem indicando o estado atual do processo de scraping
         """
-        if self.state.status == "Running":
-            if self.state.qtd_books > 0:
+        if self.state.status == "Extracting_urls":
+            return f"Scraping em andamento: Extraindo URLs dos livros do site. Aguarde... ({self.state.qtd_books_urls} URLs encontradas até agora)"
+            
+        elif self.state.status == "Scraping_books":
+            if self.state.qtd_books_urls > 0:
                 current_count = len(self.state.books_dataframe)
-                progress = self.utils.calculate_scraping_progress(current_count, self.state.qtd_books)
-                return f"Scraping em andamento: {progress:.2f}%."
+                progress = self.utils.calculate_scraping_progress(current_count, self.state.qtd_books_urls)
+                return f"Coletando dados dos livros: {current_count}/{self.state.qtd_books_urls} ({progress:.1f}%). Aguarde a conclusão para acessar as funções de consulta."
             else:
-                return "Scraping em andamento: Extraindo URLs dos livros. (Aguarde...)"
+                return "Iniciando coleta de dados dos livros. Aguarde..."
+                
+        
                 
         elif self.state.status == "Done":
-            return f"Scraping concluído. {self.state.qtd_books} livros coletados."
+            return f"Scraping concluído com sucesso! {self.state.qtd_books_urls} livros coletados e disponíveis para consulta."
         elif self.state.status == "Stopping":
             return "Parando o scraping..."
+        elif self.state.status == "Error":
+            return "Erro durante o scraping. Use /api/v1/scraper/reset para resetar e tente novamente."
         else:
-            return "Scraping não foi iniciado ainda."
+            return "Scraping não foi iniciado ainda. Use /api/v1/scraper/start para iniciar a coleta de dados."
 
     def scraper_task(self) -> Optional[pd.DataFrame]:
         """
@@ -83,18 +90,20 @@ class WebScraper:
             pd.DataFrame: DataFrame contendo os dados dos livros coletados
         """
         try:
-            # Inicializa o processo
-            self.state.status = "Running"
+            # Inicializa o processo - Status: Extraindo URLs
+            self.state.status = "Extracting_urls"
             self.state.books_dataframe = pd.DataFrame()
+            self.state.qtd_books_urls = 0
             
-            # Obtém URLs de todos os livros
-            books_urls = self.utils.extract_all_books_urls(self.BASE_URL, self.html_parser)
+            # Obtém URLs de todos os livros (passa o estado para atualização em tempo real)
+            books_urls = self.utils.extract_all_books_urls(self.BASE_URL, self.html_parser, self.state)
             
             if not books_urls:
                 self.state.status = "Error"
                 return None
             
-            self.state.qtd_books = len(books_urls)
+            # Atualiza status para scraping (qtd_books_urls já foi atualizado durante a extração)
+            self.state.status = "Scraping_books"
             books_data_list = []
             
             # Processa cada livro
@@ -114,7 +123,7 @@ class WebScraper:
             
             # Finaliza o processo
             self.state.books_dataframe = pd.DataFrame(books_data_list)
-            self.state.qtd_books = len(self.state.books_dataframe)
+            self.state.qtd_books_urls = len(self.state.books_dataframe)
             self.state.status = "Done"
             
             # Salva os dados
@@ -167,7 +176,7 @@ class WebScraper:
         if success:
             # Reset do estado
             self.state.books_dataframe = pd.DataFrame()
-            self.state.qtd_books = 0
+            self.state.qtd_books_urls = 0
             if self.state.status != "Running":
                 self.state.status = "Idle"
                 
@@ -237,7 +246,7 @@ class WebScraper:
         """
         return {
             "status": self.state.status,
-            "total_books": self.state.qtd_books,
+            "total_books": self.state.qtd_books_urls,
             "books_in_dataframe": len(self.state.books_dataframe),
             "database_file": self.SCRAPING_DATABASE_FILE,
             "base_url": self.BASE_URL

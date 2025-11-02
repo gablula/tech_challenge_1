@@ -171,13 +171,14 @@ class ScraperUtils:
             return book_dict, None
 
     @staticmethod
-    def extract_all_books_urls(base_url: str, html_parser) -> Dict[str, str]:
+    def extract_all_books_urls(base_url: str, html_parser, scraping_state=None) -> Dict[str, str]:
         """
         Obtém as URLs de todos os livros navegando por todas as páginas.
         
         Args:
             base_url (str): URL base do site
             html_parser: Instância do HTMLParser
+            scraping_state: Estado do scraping para atualização em tempo real (opcional)
             
         Returns:
             dict: Dicionário com URLs dos livros como chaves e títulos como valores
@@ -215,6 +216,10 @@ class ScraperUtils:
                     current_url, books_url_dict, html_parser
                 )
                 
+                # Atualiza o estado em tempo real se fornecido
+                if scraping_state is not None:
+                    scraping_state.qtd_books_urls = len(books_url_dict)
+                
                 # Log de progresso a cada 10 páginas
                 if page_count % 10 == 0:    
                     print(f"Processadas {page_count} páginas, {len(books_url_dict)} livros encontrados...")
@@ -222,6 +227,10 @@ class ScraperUtils:
             # Log final
             if page_count >= max_pages:
                 print(f"Aviso: Atingido limite máximo de {max_pages} páginas")
+            
+            # Atualização final do estado
+            if scraping_state is not None:
+                scraping_state.qtd_books_urls = len(books_url_dict)
             
             print(f"Scraping concluído: {page_count} páginas processadas, {len(books_url_dict)} livros encontrados")
 
