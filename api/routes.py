@@ -153,15 +153,15 @@ async def get_books_titles():
     tags=["Livros"]
 )
 async def get_books_search(
-    title: Optional[str] = Query(None, description="Filtrar por título (busca parcial, case-insensitive)"),
-    category: Optional[str] = Query(None, description="Filtrar por categoria exata")
+    title: Optional[str] = Query(None, description="Filtrar por título"),
+    category: Optional[str] = Query(None, description="Filtrar por categoria")
 ):
     """
     **Busca livros com filtros opcionais**
     
     Parâmetros de busca:
-    - **title**: Busca parcial no título (não diferencia maiúsculas/minúsculas)
-    - **category**: Busca exata por categoria
+    - **title**: Busca parcial por título (case insensitive)
+    - **category**: Busca parcial por categoria (case insensitive)
     
     Exemplos de uso:
     - `/api/v1/books/search?title=python` - livros com "python" no título
@@ -173,6 +173,25 @@ async def get_books_search(
         return JSONResponse(content=data)
     
     results = scraper.search_books(title=title, category=category)
+    
+    # Verificar se encontrou resultados
+    if not results:
+        # Construir mensagem informativa baseada nos filtros aplicados
+        filters_applied = []
+        if title:
+            filters_applied.append(f"título contendo '{title}'")
+        if category:
+            filters_applied.append(f"categoria contendo '{category}'")
+        
+        if filters_applied:
+            filter_text = " e ".join(filters_applied)
+            message = f"Nenhum livro encontrado com {filter_text}. Verifique os filtros e tente novamente."
+        else:
+            message = "Nenhum livro encontrado. Verifique se o scraping foi concluído."
+        
+        data = {"message": message}
+        return JSONResponse(content=data)
+    
     return JSONResponse(content=results)
 
 
