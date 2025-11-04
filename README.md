@@ -511,3 +511,8 @@ Para suporte e dúvidas:
 
 - https://github.com/gablula/tech_challenge_1/blob/main/Diagrama%20Book%20Scraper%20API.png
 ---
+
+## Link Deploy
+
+- https://tech-challenge-1-r7gr.onrender.com/
+---
