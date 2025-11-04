@@ -4,7 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from services.web_scraper import WebScraper
 
@@ -267,9 +267,31 @@ async def health_check():
             size_bytes = os.path.getsize(database_path)
             csv_size_mb = round(size_bytes / (1024 * 1024), 3)
             
-            # Data de criação do arquivo
+            # Data de criação do arquivo com fuso horário local
             creation_timestamp = os.path.getctime(database_path)
-            csv_creation_date = datetime.fromtimestamp(creation_timestamp).strftime("%d/%m/%Y %H:%M:%S")
+            
+            # Detectar fuso horário local automaticamente
+            try:
+                # Obter datetime com timezone local
+                local_datetime_with_tz = datetime.fromtimestamp(creation_timestamp, tz=datetime.now().astimezone().tzinfo)
+                
+                # Calcular offset em horas
+                offset_seconds = local_datetime_with_tz.utcoffset().total_seconds()
+                offset_hours = int(offset_seconds / 3600)
+                offset_minutes = int((abs(offset_seconds) % 3600) / 60)
+                
+                # Formatar com informação do fuso horário
+                if offset_minutes == 0:
+                    tz_info = f"UTC{offset_hours:+d}"
+                else:
+                    tz_info = f"UTC{offset_hours:+d}:{offset_minutes:02d}"
+                
+                csv_creation_date = local_datetime_with_tz.strftime(f"%d/%m/%Y %H:%M:%S ({tz_info})")
+                
+            except Exception:
+                # Fallback: usar horário local sem timezone info
+                local_datetime = datetime.fromtimestamp(creation_timestamp)
+                csv_creation_date = local_datetime.strftime("%d/%m/%Y %H:%M:%S (Local)")
     except Exception:
         # Se houver erro ao acessar o arquivo, mantenha os valores None
         pass
