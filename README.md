@@ -504,10 +504,10 @@ Para suporte e dúvidas:
 
 ## Link Apresentação
 
-https://www.canva.com/design/DAG3solk5AI/IdgeqO7Fu9LYub1F9iO-Nw/edit?utm_content=DAG3solk5AI&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
+- https://www.canva.com/design/DAG3solk5AI/IdgeqO7Fu9LYub1F9iO-Nw/edit?utm_content=DAG3solk5AI&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
 --- 
 
 ## Link Diagrama
 
-https://github.com/gablula/tech_challenge_1/blob/main/README.md
+- https://github.com/gablula/tech_challenge_1/blob/main/Diagrama%20Book%20Scraper%20API.png
 ---
